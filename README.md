@@ -9,7 +9,8 @@ pluginManagement {
     mavenCentral()
     maven {url = "https://maven.fabricmc.net"}
   }
-}```
+}
+```
 (Note: Since I currently lack a maven, I have not included anywhere YAMG itself can be found in this example.)
 
 Then, in `build.gradle`, you will need to specify the version of minecraft, yarn mappings (support for other mapping types is planned), and repositories to resolve Minecraft's dependencies (and the mappings), like so:
