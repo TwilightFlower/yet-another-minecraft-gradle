@@ -10,6 +10,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 
 import net.fabricmc.mapping.tree.ClassDef;
@@ -58,6 +59,17 @@ public final class Util {
 			outBuf.write(buf, 0, read);
 		}
 		return outBuf.toByteArray();
+	}
+	
+	public static String getOs() {
+		String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+		if(os.startsWith("windows")) {
+			return "windows";
+		} else if(os.startsWith("mac")) {
+			return "osx";
+		} else {
+			return "linux";
+		}
 	}
 	
 	// these two methods copied from loom

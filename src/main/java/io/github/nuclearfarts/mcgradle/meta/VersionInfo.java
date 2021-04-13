@@ -1,7 +1,10 @@
 package io.github.nuclearfarts.mcgradle.meta;
 
 import java.lang.reflect.Type;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.gson.JsonDeserializationContext;
@@ -19,6 +22,7 @@ public final class VersionInfo {
 	private String clientMojmapUrl;
 	private String assetsUrl;
 	private String assetsId;
+	private final Map<String, Set<String>> natives = new HashMap<>();
 	private final Set<String> libraries = new HashSet<>();
 	
 	private VersionInfo() {}
@@ -50,6 +54,10 @@ public final class VersionInfo {
 	public Set<String> getLibraries() {
 		return libraries;
 	}
+	
+	public Set<String> getNatives(String os) {
+		return natives.getOrDefault(os, Collections.emptySet());
+	}
 
 	public static final class MojangDeserializer implements JsonDeserializer<VersionInfo> {
 		@Override
@@ -63,12 +71,18 @@ public final class VersionInfo {
 			info.clientMojmapUrl = urlOf("client-mappings", dls);
 			for(JsonElement e : json.getAsJsonArray("libraries")) {
 				JsonObject lib = e.getAsJsonObject();
-				info.libraries.add(lib.get("name").getAsString());
+				String name = lib.get("name").getAsString();
+				info.libraries.add(name);
+				JsonObject natives = lib.getAsJsonObject("natives");
+				if(natives != null) {
+					for(Map.Entry<String, JsonElement> entry : natives.entrySet()) {
+						info.natives.computeIfAbsent(entry.getKey(), s -> new HashSet<>()).add(name + ":" + entry.getValue().getAsString());
+					}
+				}
 			}
 			JsonObject assets = json.getAsJsonObject("assetIndex");
 			info.assetsId = assets.get("id").getAsString();
 			info.assetsUrl = assets.get("url").getAsString();
-			
 			return info;
 		}
 		
@@ -97,6 +111,10 @@ public final class VersionInfo {
 			info.assetsId = context.deserialize(json.get("assetsId"), String.class);
 			info.assetsUrl = context.deserialize(json.get("assetsUrl"), String.class);
 			info.libraries.addAll(context.deserialize(json.get("libraries"), Set.class));
+			JsonObject natives = json.getAsJsonObject("natives");
+			for(Map.Entry<String, JsonElement> e : natives.entrySet()) {
+				info.natives.put(e.getKey(), context.deserialize(e.getValue(), Set.class));
+			}
 			return info;
 		}
 	}
@@ -112,6 +130,7 @@ public final class VersionInfo {
 			json.addProperty("assetsId", info.assetsId);
 			json.addProperty("assetsUrl", info.assetsUrl);
 			json.add("libraries", context.serialize(info.libraries));
+			json.add("natives", context.serialize(info.natives));
 			return json;
 		}
 	}

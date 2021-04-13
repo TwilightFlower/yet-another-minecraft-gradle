@@ -176,6 +176,9 @@ public class McPluginInstance implements Remapper.YarnProvider {
 			for(String lib : info.getLibraries()) {
 				project.getDependencies().add("mcDeps", lib);
 			}
+			for(String lib : info.getNatives(Util.getOs())) {
+				project.getDependencies().add("mcDeps", lib);
+			}
 			libsAdded = true;
 			mcDeps.setCanBeResolved(true);
 		}
