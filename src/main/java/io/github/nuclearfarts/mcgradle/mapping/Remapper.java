@@ -8,7 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import org.gradle.api.artifacts.Configuration;
 
 import io.github.nuclearfarts.mcgradle.util.DirectoryCopyFileVisitor;
 import io.github.nuclearfarts.mcgradle.util.Util;
@@ -50,9 +53,54 @@ public class Remapper {
 		remap(inJar, outJar, provider);
 	}
 	
+	public void remapWithModContext(String from, String to, Path inJar, Path outJar, Configuration classpath) {
+		TinyTree mappings = CACHE.computeIfAbsent(data.getYarnVersion(), ver -> {
+			try(FileSystem fs = FileSystems.newFileSystem(data.resolveYarn().toPath(), getClass().getClassLoader())) {
+				return TinyMappingFactory.loadWithDetection(Files.newBufferedReader(fs.getPath("mappings", "mappings.tiny")));
+			} catch (IOException e) {
+				e.printStackTrace();
+				throw new RuntimeException("error loading yarn", e);
+			}
+		});
+		IMappingProvider provider = Util.create(mappings, from, to, true);
+		remap(inJar, outJar, provider, classpath);
+	}
+	
+	private void remap(Path inJar, Path outJar, IMappingProvider provider, Configuration classpath) {
+		TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(provider).build();
+		remapper.readInputs(inJar);
+		for(File f : classpath.resolve()) {
+			remapper.readClassPath(f.toPath());
+		}
+		
+		try(FileSystem outFs = FileSystems.newFileSystem(Util.jarFsUri(outJar), Util.FS_ENV)) {
+			remapper.apply((path, clazz) -> {
+				Path classOut = outFs.getPath(path + ".class");
+				try {
+					Files.createDirectories(classOut.getParent());
+					Files.write(classOut, clazz, StandardOpenOption.CREATE);
+				} catch (IOException e) {
+					e.printStackTrace();
+					throw new RuntimeException("error writing remapped class", e);
+				}
+			});
+			remapper.finish();
+			
+			try(FileSystem inFs = FileSystems.newFileSystem(inJar, getClass().getClassLoader())) {
+				Path in = inFs.getPath("/");
+				Path out = outFs.getPath("/");
+				Files.walkFileTree(in, new DirectoryCopyFileVisitor(in, out, p -> !p.toString().endsWith(".class")));
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new RuntimeException("remapping error", e);
+		}
+	}
+	
 	private void remap(Path inJar, Path outJar, IMappingProvider provider) {
 		TinyRemapper remapper = TinyRemapper.newRemapper().rebuildSourceFilenames(true).withMappings(provider).build();
 		remapper.readInputs(inJar);
+		
 		try(FileSystem outFs = FileSystems.newFileSystem(Util.jarFsUri(outJar), Util.FS_ENV)) {
 			remapper.apply((path, clazz) -> {
 				Path classOut = outFs.getPath(path + ".class");

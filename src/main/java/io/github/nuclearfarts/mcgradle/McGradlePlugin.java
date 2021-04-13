@@ -2,9 +2,9 @@ package io.github.nuclearfarts.mcgradle;
 
 import java.io.File;
 import java.io.Serializable;
-
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.attributes.Attribute;
 import org.gradle.plugins.ide.eclipse.model.AbstractLibrary;
@@ -15,6 +15,7 @@ import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 import com.google.common.collect.ImmutableMap;
 
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
+import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper.YarnProvider;
 import io.github.nuclearfarts.mcgradle.sources.GenSources;
@@ -27,7 +28,7 @@ public class McGradlePlugin implements Plugin<Project> {
 		proj.apply(ImmutableMap.of("plugin", "java"));
 		proj.apply(ImmutableMap.of("plugin", "eclipse"));
 		proj.apply(ImmutableMap.of("plugin", "idea"));
-		//proj.getDependencies().registerTransform(Trans, null);
+		
 		McPluginInstance data = new McPluginInstance();
 		proj.getDependencies().getAttributesSchema().attribute(REMAP);
 		proj.getDependencies().getArtifactTypes().getByName("jar").getAttributes().attribute(REMAP, true);
@@ -50,6 +51,25 @@ public class McGradlePlugin implements Plugin<Project> {
 		data.mcDeps = mcDeps;
 		data.ext.libraries = mcDeps;
 		proj.getTasks().create("genSources", GenSources.class);
+		/*Task remapJar = proj.getTasks().create("remapJar", Copy.class, t -> {
+			t.dependsOn("jar");
+			Path p = proj.getTasks().getByName("jar").getOutputs().getFiles().getFiles().iterator().next().toPath();
+			t.from(p.toFile());
+			t.into(p.getParent().toFile());
+			t.rename(".jar", "-dev.jar");
+			t.doLast(o -> {
+				try {
+					Files.delete(p);
+				} catch (IOException e) {
+					throw new RuntimeException("Could not delete un-mapped jar", e);
+				}
+				data.remapper.remap("named", "intermediary", o.getOutputs().getFiles().getFiles().iterator().next().toPath(), p);
+			});
+		});*/
+		Task jar = proj.getTasks().getAt("jar");
+		Task remapJar = proj.getTasks().create("remapJar", RemapJar.class).remap(jar.getOutputs().getFiles().getSingleFile()).dependsOn(jar);
+		proj.getTasks().getByName("build").dependsOn(remapJar);
+		
 		EclipseModel model = proj.getExtensions().getByType(EclipseModel.class);
 		model.getClasspath().getFile().whenMerged(cp1 -> {
 			Classpath cp = (Classpath) cp1;
