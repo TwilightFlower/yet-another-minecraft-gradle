@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.gradle.api.DefaultTask;
-import org.gradle.api.plugins.JavaPlugin;
-
 import io.github.nuclearfarts.mcgradle.McPluginExtension;
 
 public class RemapJar extends DefaultTask {
@@ -35,18 +33,22 @@ public class RemapJar extends DefaultTask {
 	
 	public RemapJar remap(File f) {
 		jarsToRemap.add(f);
+		if(f.isFile()) {
+			getOutputs().file(f);
+		}
+		getInputs().file(f);
 		return this;
 	}
 	
 	private void doRemap(Remapper r, File f) {
-		Path prodJar = f.toPath();
-		Path devJar = prodJar.resolveSibling(prodJar.getFileName().toString().replace(".jar", "-dev.jar"));
+		Path devJar = f.toPath();
+		Path prodJar = devJar.resolveSibling(devJar.getFileName().toString().replace("-dev.jar", ".jar"));
 		try {
 			Files.move(prodJar, devJar, StandardCopyOption.REPLACE_EXISTING);
 		} catch (IOException e) {
 			throw new RuntimeException("error remapping built jar", e);
 		}
 		
-		r.remapWithModContext("named", "intermediary", devJar, prodJar, getProject().getConfigurations().getByName(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME));
+		r.remapWithModContext("named", "intermediary", devJar, prodJar, getProject().getConfigurations().getByName("mod"));
 	}
 }
