@@ -7,11 +7,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
-
-import org.gradle.api.artifacts.Configuration;
 
 import io.github.nuclearfarts.mcgradle.util.DirectoryCopyFileVisitor;
 import io.github.nuclearfarts.mcgradle.util.Util;

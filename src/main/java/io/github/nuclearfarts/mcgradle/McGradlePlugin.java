@@ -1,7 +1,6 @@
 package io.github.nuclearfarts.mcgradle;
 
 import java.io.File;
-import java.io.Serializable;
 import java.util.function.Supplier;
 
 import org.gradle.api.Plugin;
@@ -21,7 +20,6 @@ import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.MappingsExtension;
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
 import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
-import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.sources.GenSources;
 
 public class McGradlePlugin implements Plugin<Project> {
