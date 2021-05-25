@@ -77,7 +77,7 @@ public class McPluginInstance {
 	
 	public File getMcSources() {
 		Path mc = getMinecraft().toPath();
-		return mc.getParent().resolve(getMinecraftName() + "-src.jar").toFile();
+		return mc.resolveSibling(getMinecraftName() + "-lmap-src.jar").toFile();
 	}
 	
 	private void ensureMcExists(Path versionCache) {
