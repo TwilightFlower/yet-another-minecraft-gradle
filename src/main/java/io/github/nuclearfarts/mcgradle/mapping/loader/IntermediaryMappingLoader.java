@@ -18,15 +18,4 @@ public class IntermediaryMappingLoader extends TinyMappingLoader {
 		proj.getDependencies().add("_intermediary", "org.quiltmc:intermediary:" + mcVersion);
 		return loadMappingsMaybeFromJar(cfg.getSingleFile());
 	}
-
-	@Override
-	protected String transformNamespace(String namespace) {
-		return namespace;
-	}
-
-	@Override
-	protected boolean allowNamespace(String namespace) {
-		return true;
-	}
-
 }

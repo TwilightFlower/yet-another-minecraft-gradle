@@ -24,6 +24,14 @@ public class YarnLoader extends TinyMappingLoader {
 		}
 		return namespace;
 	}
+	
+	@Override
+	protected String detransformNamespace(String transformed) {
+		if(("yarn-" + yarnVer).equals(transformed)) {
+			return "named";
+		}
+		return transformed;
+	}
 
 	@Override
 	protected boolean allowNamespace(String namespace) {

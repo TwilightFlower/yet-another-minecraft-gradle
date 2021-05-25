@@ -22,8 +22,18 @@ public abstract class TinyMappingLoader implements MappingLoader {
 	private final Set<MappingKey> provides = new HashSet<>();
 	
 	protected abstract TinyTree loadMappings(String mcVersion);
-	protected abstract String transformNamespace(String namespace);
-	protected abstract boolean allowNamespace(String namespace);
+	
+	protected String transformNamespace(String namespace) {
+		return namespace;
+	}
+	
+	protected String detransformNamespace(String transformed) {
+		return transformed;
+	}
+	
+	protected boolean allowNamespace(String namespace) {
+		return true;
+	}
 	
 	@Override
 	public Set<MappingKey> provides(String mcVersion) {
@@ -34,7 +44,7 @@ public abstract class TinyMappingLoader implements MappingLoader {
 	@Override
 	public IMappingProvider load(MappingKey key, String mcVersion) {
 		ensureLoaded(mcVersion);
-		return Util.create(tinyTree, key.src, key.target, true);
+		return Util.create(tinyTree, detransformNamespace(key.src), detransformNamespace(key.target), true);
 	}
 	
 	private void ensureLoaded(String mcVersion) {
