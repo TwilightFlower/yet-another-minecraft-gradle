@@ -10,24 +10,22 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.Dependency;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import io.github.nuclearfarts.mcgradle.mapping.MappingKey;
+import io.github.nuclearfarts.mcgradle.mapping.MappingStore;
+import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.meta.LauncherMeta;
 import io.github.nuclearfarts.mcgradle.meta.VersionInfo;
 import io.github.nuclearfarts.mcgradle.util.Util;
 import net.fabricmc.stitch.merge.JarMerger;
 
-public class McPluginInstance implements Remapper.YarnProvider {
+public class McPluginInstance {
 	private static final URL LAUNCHERMETA = Util.uncheckedUrl("https://launchermeta.mojang.com/mc/game/version_manifest.json");
 	private static LauncherMeta launcherMeta;
 	private static final Map<String, VersionInfo> VERSION_CACHE = new HashMap<>();
@@ -42,52 +40,59 @@ public class McPluginInstance implements Remapper.YarnProvider {
 	public Path cacheRoot;
 	public Project project;
 	public McPluginExtension ext;
-	public Remapper remapper;
-	public Configuration yarnConf;
-	public Configuration intermediaryConf;
 	public Configuration mcDeps;
-	private boolean intermediaryResolved = false;
+	public Mappings mappingLoader;
+	private MappingStore mappingStore;
 	private boolean libsAdded = false;
-	private final Set<Dependency> remap = new HashSet<>();
 	
-	public File getMinecraft(String mappings) {
+	public MappingStore getUsedMappings() {
+		if(mappingStore == null) {
+			mappingStore = mappingLoader.loadMain();
+		}
+		return mappingStore;
+	}
+	
+	public File getMinecraft() {
 		Path versionCache = cacheRoot.resolve("minecraft").resolve(ext.version);
-		Path mcLoc = versionCache.resolve(mappings + "-merged.jar");
-		Path lineMapped = versionCache.resolve(mappings + "-merged-lmap.jar");
+		Path mcLoc = versionCache.resolve(getMinecraftName() + ".jar");
+		Path lineMapped = versionCache.resolve(getMinecraftName() + "-lmap.jar");
 		if(Files.exists(lineMapped)) {
 			return lineMapped.toFile();
 		}
-		ensureMcExists(mappings, versionCache);
+		ensureMcExists(versionCache);
 		return mcLoc.toFile();
 	}
 	
-	public File getMappedMinecraft() {
-		String mappings = "yarn-" + getYarnVersion();
-		return getMinecraft(mappings);
+	public String getMinecraftName(MappingKey.Loaded mappings, boolean merged) {
+		return mappings.target + (merged ? "-merged" : "");
+	}
+	
+	public String getMinecraftName(MappingKey.Loaded mappings) {
+		return getMinecraftName(mappings, true);
+	}
+	
+	public String getMinecraftName() {
+		return getMinecraftName(getUsedMappings().intermediaryToDev, true);
 	}
 	
 	public File getMcSources() {
-		Path mc = getMappedMinecraft().toPath();
-		return mc.getParent().resolve(mc.getFileName().toString().replace(".jar", "-src.jar")).toFile();
+		Path mc = getMinecraft().toPath();
+		return mc.getParent().resolve(getMinecraftName() + "-src.jar").toFile();
 	}
 	
-	public void queueForRemapping(Dependency dep) {
-		remap.add(dep);
-	}
-	
-	private void ensureMcExists(String mappings, Path versionCache) {
+	private void ensureMcExists(Path versionCache) {
 		try {
 			Files.createDirectories(versionCache);
 		} catch (IOException e) {
 			throw new RuntimeException("Could not create cache directory", e);
 		}
-		Path mcLoc = versionCache.resolve(mappings + "-merged.jar");
+		Path mcLoc = versionCache.resolve(getMinecraftName(getUsedMappings().intermediaryToDev) + ".jar");
 		if(Files.exists(mcLoc)) {
 			return; // this makes our job real easy
 		}
 		Path intermediaryMergedLoc = versionCache.resolve("intermediary-merged.jar");
 		if(Files.exists(intermediaryMergedLoc)) {
-			remapper.remapToDev("intermediary", intermediaryMergedLoc, mcLoc);
+			Remapper.remap(getUsedMappings().intermediaryToDev, intermediaryMergedLoc, mcLoc);
 			copyAssets(mcLoc);
 			return;
 		}
@@ -96,13 +101,9 @@ public class McPluginInstance implements Remapper.YarnProvider {
 			downloadAndMerge(versionCache);
 		}
 		System.out.println("official -> int");
-		try {
-		remapper.remap("official", "intermediary", obfMergedLoc, intermediaryMergedLoc);
-		} catch(Throwable t) {
-			t.printStackTrace();
-		}
+		Remapper.remap(getUsedMappings().officialToIntermediary, obfMergedLoc, intermediaryMergedLoc);
 		System.out.println("int -> named");
-		remapper.remapToDev("intermediary", intermediaryMergedLoc, mcLoc);
+		Remapper.remap(getUsedMappings().intermediaryToDev, intermediaryMergedLoc, mcLoc);
 		return;
 	}
 	
@@ -134,6 +135,9 @@ public class McPluginInstance implements Remapper.YarnProvider {
 	public VersionInfo getVersionInfo() {
 		return VERSION_CACHE.computeIfAbsent(ext.version, ver -> {
 			Path cache = cacheRoot.resolve("minecraft").resolve(ext.version).resolve("version-info.json");
+			try {
+				Files.createDirectories(cache.getParent());
+			} catch (IOException e1) { }
 			if(Files.exists(cache)) {
 				try(Reader r = Files.newBufferedReader(cache)) {
 					return CACHED_VERSION_GSON.fromJson(r, VersionInfo.class);
@@ -152,22 +156,6 @@ public class McPluginInstance implements Remapper.YarnProvider {
 				return info;
 			}
 		});
-	}
-	
-	public File resolveYarn() {
-		return yarnConf.getSingleFile();
-	}
-	
-	public String getYarnVersion() {
-		return yarnConf.getResolvedConfiguration().getResolvedArtifacts().iterator().next().getModuleVersion().getId().getVersion();
-	}
-	
-	public File resolveIntermediary() {
-		if(!intermediaryResolved) {
-			project.getDependencies().add("intermediary", "net.fabricmc:intermediary:" + ext.version + ":v2");
-		}
-		intermediaryResolved = true;
-		return intermediaryConf.getSingleFile();
 	}
 	
 	public void loadLibs() {

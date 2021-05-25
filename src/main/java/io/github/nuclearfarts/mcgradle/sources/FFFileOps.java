@@ -153,11 +153,12 @@ public class FFFileOps implements IBytecodeProvider, IFabricResultSaver, Closeab
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		//System.out.println(String.format("SCE path %s arcN %s qalN &% entN %s", path, archiveName, qualifiedName, entryName));
+		System.out.println(String.format("SCE path %s arcN %s qalN &% entN %s", path, archiveName, qualifiedName, entryName));
 	}
 
 	@Override
 	public void closeArchive(String path, String archiveName) {
+		System.out.println("closeArchive " + archiveName);
 		latch.countDown();
 	}
 

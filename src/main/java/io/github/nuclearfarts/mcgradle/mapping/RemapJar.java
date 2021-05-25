@@ -16,14 +16,14 @@ public class RemapJar extends DefaultTask {
 	
 	public RemapJar() {
 		doLast(t -> {
-			Remapper r = getProject().getExtensions().getByType(McPluginExtension.class).getPluginDataInternal().remapper;
+			MappingStore m = getProject().getExtensions().getByType(McPluginExtension.class).getPluginDataInternal().getUsedMappings();
 			for(File f : jarsToRemap) {
 				if(f.isFile()) {
-					doRemap(r, f);
+					doRemap(m.devToIntermediary, f);
 				} else if(f.isDirectory()) {
 					for(File f2 : f.listFiles()) {
 						if(f2.isFile()) {
-							doRemap(r, f);
+							doRemap(m.devToIntermediary, f);
 						}
 					}
 				}
@@ -40,7 +40,7 @@ public class RemapJar extends DefaultTask {
 		return this;
 	}
 	
-	private void doRemap(Remapper r, File f) {
+	private void doRemap(MappingKey.Loaded m, File f) {
 		Path devJar = f.toPath();
 		Path prodJar = devJar.resolveSibling(devJar.getFileName().toString().replace("-dev.jar", ".jar"));
 		try {
@@ -49,6 +49,6 @@ public class RemapJar extends DefaultTask {
 			throw new RuntimeException("error remapping built jar", e);
 		}
 		
-		r.remapWithModContext("named", "intermediary", devJar, prodJar, getProject().getConfigurations().getByName("mod"));
+		Remapper.remapWithModContext(m, devJar, prodJar, getProject().getConfigurations().getByName("mod_internal_mapped").resolve());
 	}
 }

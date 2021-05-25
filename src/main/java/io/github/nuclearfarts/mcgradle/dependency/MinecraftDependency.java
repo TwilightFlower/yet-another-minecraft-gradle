@@ -63,7 +63,7 @@ public abstract class MinecraftDependency implements SelfResolvingDependencyInte
 	public Set<File> resolve(boolean arg0) {
 		if(files == null) {
 			files = new HashSet<>();
-			files.add(data.getMappedMinecraft());
+			files.add(data.getMinecraft());
 			data.loadLibs();
 			project.getConfigurations().getByName("mcDeps").getResolvedConfiguration(); // force resolution
 		}

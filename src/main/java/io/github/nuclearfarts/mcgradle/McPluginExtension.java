@@ -2,13 +2,14 @@ package io.github.nuclearfarts.mcgradle;
 
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
+
 import io.github.nuclearfarts.mcgradle.dependency.MinecraftDependency;
-import io.github.nuclearfarts.mcgradle.mapping.MappingType;
 
 public class McPluginExtension extends MinecraftDependency {
 	public boolean useMojmap = false; // not yet implemented
 	public String version;
-	public Configuration libraries;
+	Configuration libraries;
 	McPluginInstance data;
 	
 	public McPluginExtension(Project project, McPluginInstance data) {
@@ -19,12 +20,17 @@ public class McPluginExtension extends MinecraftDependency {
 		return data;
 	}
 	
-	public MappingType getMappingsType() {
-		return useMojmap ? MappingType.MOJMAP : MappingType.YARN;
+	public Configuration getLibraries() {
+		return libraries;
 	}
-
+	
 	@Override
 	public String getVersion() {
 		return version;
+	}
+	
+	public Dependency mod(Object dep) {
+		data.project.getDependencies().add("mod_internal_unmapped", dep);
+		return data.project.getDependencies().add("mod_internal_mapped", dep);
 	}
 }

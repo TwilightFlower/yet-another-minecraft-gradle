@@ -16,10 +16,12 @@ import org.gradle.plugins.ide.eclipse.model.ClasspathEntry;
 import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 
 import com.google.common.collect.ImmutableMap;
+
+import io.github.nuclearfarts.mcgradle.mapping.Mappings;
+import io.github.nuclearfarts.mcgradle.mapping.MappingsExtension;
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
 import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper;
-import io.github.nuclearfarts.mcgradle.mapping.Remapper.YarnProvider;
 import io.github.nuclearfarts.mcgradle.sources.GenSources;
 
 public class McGradlePlugin implements Plugin<Project> {
@@ -37,21 +39,19 @@ public class McGradlePlugin implements Plugin<Project> {
 		
 		
 		proj.getExtensions().add("minecraft", new McPluginExtension(proj, data));
-		Configuration yarn = proj.getConfigurations().create("yarn");
-		Configuration intermediary = proj.getConfigurations().create("intermediary");
+		proj.getExtensions().add("mappings", new MappingsExtension(proj));
 		Configuration mcDeps = proj.getConfigurations().create("mcDeps").setTransitive(false);
-		proj.getConfigurations().create("mod");
+		proj.getConfigurations().create("mod_internal_unmapped");
+		proj.getConfigurations().create("mod_internal_mapped");
 		mcDeps.setCanBeResolved(false);
 		
 		data.ext = proj.getExtensions().getByType(McPluginExtension.class);
-		data.yarnConf = yarn;
-		data.intermediaryConf = intermediary;
-		data.remapper = new Remapper(data);
 		data.project = proj;
-		data.cacheRoot = proj.getGradle().getGradleUserHomeDir().toPath().resolve("mcgradle");
+		data.cacheRoot = proj.getGradle().getGradleUserHomeDir().toPath().resolve("caches").resolve("mcgradle");
 		data.ext.data = data;
 		data.mcDeps = mcDeps;
 		data.ext.libraries = mcDeps;
+		data.mappingLoader = new Mappings(proj.getExtensions().getByType(MappingsExtension.class), data.ext);
 		proj.getTasks().create("genSources", GenSources.class);
 		
 		Jar jar = (Jar) proj.getTasks().getAt("jar");
@@ -69,7 +69,7 @@ public class McGradlePlugin implements Plugin<Project> {
 				if(e.getKind().equals("lib")) {
 					AbstractLibrary lib = (AbstractLibrary) e;
 					File libF = lib.getLibrary().getFile();
-					if(libF.equals(data.getMappedMinecraft())) {
+					if(libF.equals(data.getMinecraft())) {
 						File mcSrc = data.getMcSources();
 						if(mcSrc.exists()) {
 							lib.setSourcePath(cp.fileReference(mcSrc));
@@ -85,38 +85,17 @@ public class McGradlePlugin implements Plugin<Project> {
 		runClient.args("--version", (Supplier<String>) () -> data.ext.version, "--accessToken", "NO_TOKEN");
 		runClient.classpath(proj.getConfigurations().getByName("runtimeClasspath"));
 		
-		proj.getConfigurations().getByName("mod").getAttributes().attribute(REMAP, false);
+		proj.getConfigurations().getByName("mod_internal_mapped").getAttributes().attribute(REMAP, false);
 		proj.afterEvaluate(p -> {
 			remapJar.remap(jar.getOutputs().getFiles().getSingleFile());
 			// now that we know our yarn version we can do this
 			proj.getDependencies().registerTransform(ModTransformer.class, t -> {
 				t.getFrom().attribute(REMAP, true);
 				t.getTo().attribute(REMAP, false);
-				t.getParameters().setYarnProvider(new LoadedYarnProvider(data.getYarnVersion(), data.resolveYarn()));
+				t.getParameters().setMappingKey(data.getUsedMappings().intermediaryToDev);
 			});
 			// load the MC libraries.
 			data.loadLibs();
 		});
-	}
-	
-	@SuppressWarnings("serial")
-	private static final class LoadedYarnProvider implements YarnProvider, Serializable {
-		private final String ver;
-		private final File f;
-		public LoadedYarnProvider(String ver, File f) {
-			this.ver = ver;
-			this.f = f;
-		}
-		
-		@Override
-		public String getYarnVersion() {
-			return ver;
-		}
-
-		@Override
-		public File resolveYarn() {
-			return f;
-		}
-		
 	}
 }

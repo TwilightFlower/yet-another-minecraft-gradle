@@ -44,7 +44,7 @@ public class GenSources extends DefaultTask {
 	public void genSrc() {
 		Project proj = getProject();
 		McPluginInstance data = proj.getExtensions().getByType(McPluginExtension.class).getPluginDataInternal();
-		File minecraft = data.getMappedMinecraft();
+		File minecraft = data.getMinecraft();
 		data.loadLibs();
 		Map<String, int[]> lmaps = new ConcurrentHashMap<>();
 		Path cacheDir = data.cacheRoot.resolve("minecraft").resolve(data.ext.version);

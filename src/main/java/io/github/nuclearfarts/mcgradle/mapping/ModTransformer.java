@@ -1,6 +1,7 @@
 package io.github.nuclearfarts.mcgradle.mapping;
 
 import java.io.File;
+import java.util.Set;
 
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
@@ -12,8 +13,6 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 
-import io.github.nuclearfarts.mcgradle.mapping.Remapper.YarnProvider;
-
 @CacheableTransform
 public abstract class ModTransformer implements TransformAction<ModTransformer.Parameters> {
 	@Classpath
@@ -23,15 +22,18 @@ public abstract class ModTransformer implements TransformAction<ModTransformer.P
 	@Override
 	public void transform(TransformOutputs outputs) {
 		File loc = getInputArtifact().get().getAsFile();
-		String fName = loc.toPath().getFileName().toString().replace(".jar", "-mapped-yarn-" + getParameters().getYarnProvider().getYarnVersion() + ".jar");
+		MappingKey.Loaded mappings = getParameters().getMappingKey();
+		String fName = loc.toPath().getFileName().toString().replace(".jar", "-mapped-" + mappings.target + ".jar");
 		File out = outputs.file(fName);
-		Remapper r = new Remapper(getParameters().getYarnProvider());
-		r.remapToDev("intermediary", loc.toPath(), out.toPath());
+		Remapper.remapWithModContext(getParameters().getMappingKey(), loc.toPath(), out.toPath(), getParameters().getUnmappedFiles());
 	}
 	
 	public interface Parameters extends TransformParameters {
 		@Input
-		YarnProvider getYarnProvider();
-		void setYarnProvider(YarnProvider provider);
+		MappingKey.Loaded getMappingKey();
+		void setMappingKey(MappingKey.Loaded key);
+		@Input
+		Set<File> getUnmappedFiles();
+		void setUnmappedFiles(Set<File> files);
 	}
 }
