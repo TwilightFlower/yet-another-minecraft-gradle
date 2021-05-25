@@ -1,13 +1,10 @@
 package io.github.nuclearfarts.mcgradle;
 
 import java.io.File;
-import java.util.function.Supplier;
-
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.attributes.Attribute;
-import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.plugins.ide.eclipse.model.AbstractLibrary;
 import org.gradle.plugins.ide.eclipse.model.Classpath;
@@ -76,12 +73,6 @@ public class McGradlePlugin implements Plugin<Project> {
 				}
 			}
 		});
-		
-		JavaExec runClient = proj.getTasks().create("runClient", JavaExec.class);
-		runClient.dependsOn(proj.getConfigurations().getByName("runtimeClasspath"));
-		runClient.setMain("net.minecraft.client.main.Main");
-		runClient.args("--version", (Supplier<String>) () -> data.ext.version, "--accessToken", "NO_TOKEN");
-		runClient.classpath(proj.getConfigurations().getByName("runtimeClasspath"));
 		
 		proj.getConfigurations().getByName("mod_internal_mapped").getAttributes().attribute(REMAP, false);
 		proj.afterEvaluate(p -> {
