@@ -48,7 +48,7 @@ public class McGradlePlugin implements Plugin<Project> {
 		proj.getConfigurations().create("mod_internal_mapped");
 		mcDeps.setCanBeResolved(false);
 		
-		proj.getDependencies().getExtensions().add("remap", new ModDependencyExtension(data));
+		proj.getDependencies().getExtensions().add("mods", new ModDependencyExtension(data));
 		
 		data.ext = proj.getExtensions().getByType(McPluginExtension.class);
 		data.project = proj;

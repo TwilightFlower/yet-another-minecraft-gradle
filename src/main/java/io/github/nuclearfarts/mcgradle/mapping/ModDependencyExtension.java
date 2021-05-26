@@ -24,7 +24,7 @@ public class ModDependencyExtension {
 		this.data = data;
 	}
 	
-	public void add(String cfgName, Object dep) {
+	public Object mod(Object dep) {
 		data.project.getDependencies().add("mod_internal_unmapped", dep);
 		data.project.getDependencies().add("mod_internal_mapped", dep);
 		
@@ -38,8 +38,6 @@ public class ModDependencyExtension {
 		data.project.getDependencies().add(cfgN, dep);
 		
 		hackCfg.getAttributes().attribute(McGradlePlugin.REMAP, false);
-		
-		data.project.getDependencies().add(cfgName, data.project.files(hackCfg));
 		
 		ResolvedConfiguration resolved = unmappedHackCfg.getResolvedConfiguration();
 		Set<ResolvedArtifact> moduleArtifacts = new HashSet<>();
@@ -69,5 +67,6 @@ public class ModDependencyExtension {
 				return module.getFile().getName().replace(".jar", "-mapped-" + mappings.target + ".jar");
 			}, f));
 		}
+		return data.project.files(hackCfg);
 	}
 }
