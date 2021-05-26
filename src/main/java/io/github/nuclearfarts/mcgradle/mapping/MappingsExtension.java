@@ -47,7 +47,6 @@ public class MappingsExtension {
 	}
 	
 	public void intermediary() {
-		System.out.println("intermediary");
 		loaders.add(new IntermediaryMappingLoader(proj));
 	}
 	

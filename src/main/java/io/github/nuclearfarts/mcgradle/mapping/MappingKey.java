@@ -1,5 +1,7 @@
 package io.github.nuclearfarts.mcgradle.mapping;
 
+import java.io.Serializable;
+
 import net.fabricmc.tinyremapper.IMappingProvider;
 
 public class MappingKey {
@@ -29,7 +31,8 @@ public class MappingKey {
 		return src + " -> " + target;
 	}
 	
-	public static class Loaded {
+	@SuppressWarnings("serial")
+	public static class Loaded implements Serializable {
 		public final String src, target, mc;
 		private final int hashCode;
 		

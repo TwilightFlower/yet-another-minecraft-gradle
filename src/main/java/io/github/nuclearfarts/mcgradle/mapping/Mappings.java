@@ -18,7 +18,6 @@ public class Mappings {
 	}
 	
 	public MappingStore loadMain() {
-		System.out.println(String.format("Main 3 mappings: %s, %s, %s", ext.obf, ext.interm, ext.named));
 		MappingKey.Loaded o2i = load(new MappingKey(ext.obf, ext.interm));
 		MappingKey.Loaded i2n = load(new MappingKey(ext.interm, ext.named));
 		MappingKey.Loaded n2i = load(new MappingKey(ext.named, ext.interm));
@@ -33,7 +32,6 @@ public class Mappings {
 	
 	private IMappingProvider loadIt(MappingKey.Loaded key, MappingKey unversioned) {
 		for(MappingLoader loader : ext.loaders) {
-			System.out.println(String.format("loader %s providing %s", loader, loader.provides(key.mc)));
 			if(loader.provides(key.mc).contains(unversioned)) {
 				return loader.load(unversioned, key.mc);
 			}

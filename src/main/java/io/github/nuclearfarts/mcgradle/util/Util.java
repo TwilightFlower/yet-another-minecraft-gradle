@@ -7,8 +7,11 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
@@ -27,6 +30,23 @@ public final class Util {
 	
 	public static final URI jarFsUri(Path p) {
 		return URI.create("jar:" + p.toUri().toString());
+	}
+	
+	public static void extract(Path zip, Path out) {
+		try(FileSystem inFs = FileSystems.newFileSystem(zip, Util.class.getClassLoader())) {
+			Path inRoot = inFs.getPath("/");
+			Files.walk(inRoot).forEach(p -> {
+				Path relPath = inRoot.relativize(p);
+				Path outPath = out.resolve(relPath.toString()); // this is pain
+				try {
+					Files.copy(p, outPath, StandardCopyOption.REPLACE_EXISTING);
+				} catch (IOException e) {
+					throw new RuntimeException("Error extracting " + zip, e);
+				}
+			});
+		} catch (IOException e) {
+			throw new RuntimeException("Error extracting " + zip, e);
+		}
 	}
 	
 	public static URL uncheckedUrl(String str) {

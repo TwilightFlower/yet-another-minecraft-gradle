@@ -9,8 +9,12 @@ import java.io.Writer;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import com.google.gson.Gson;
@@ -22,6 +26,7 @@ import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.meta.LauncherMeta;
 import io.github.nuclearfarts.mcgradle.meta.VersionInfo;
+import io.github.nuclearfarts.mcgradle.util.Pair;
 import io.github.nuclearfarts.mcgradle.util.Util;
 import net.fabricmc.stitch.merge.JarMerger;
 
@@ -37,6 +42,8 @@ public class McPluginInstance {
 			.registerTypeAdapter(LauncherMeta.class, new LauncherMeta.Deserializer())
 			.registerTypeAdapter(VersionInfo.class, new VersionInfo.MojangDeserializer())
 			.create();
+	public List<Pair<Function<MappingKey.Loaded, String>, File>> inputSourceProviders = new ArrayList<>();
+	private Map<String, File> inputSources;
 	public Path cacheRoot;
 	public Project project;
 	public McPluginExtension ext;
@@ -59,6 +66,13 @@ public class McPluginInstance {
 		if(Files.exists(lineMapped)) {
 			return lineMapped.toFile();
 		}
+		ensureMcExists(versionCache);
+		return mcLoc.toFile();
+	}
+	
+	public File getIntermediaryMinecraft() {
+		Path versionCache = cacheRoot.resolve("minecraft").resolve(ext.version);
+		Path mcLoc = versionCache.resolve(getMinecraftName(getUsedMappings().officialToIntermediary) + ".jar");
 		ensureMcExists(versionCache);
 		return mcLoc.toFile();
 	}
@@ -156,6 +170,17 @@ public class McPluginInstance {
 				return info;
 			}
 		});
+	}
+	
+	public File getInputSource(String s) {
+		if(inputSources == null) {
+			inputSources = new HashMap<>();
+			MappingKey.Loaded mappings = mappingStore.intermediaryToDev;
+			for(Pair<Function<MappingKey.Loaded, String>, File> p : inputSourceProviders) {
+				inputSources.put(p.left.apply(mappings), p.right);
+			}
+		}
+		return inputSources.get(s);
 	}
 	
 	public void loadLibs() {

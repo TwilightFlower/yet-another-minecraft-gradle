@@ -1,6 +1,10 @@
 package io.github.nuclearfarts.mcgradle;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -17,6 +21,7 @@ import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.MappingsExtension;
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
 import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
+import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.sources.GenSources;
 
 public class McGradlePlugin implements Plugin<Project> {
@@ -32,10 +37,10 @@ public class McGradlePlugin implements Plugin<Project> {
 		proj.getDependencies().getAttributesSchema().attribute(REMAP);
 		proj.getDependencies().getArtifactTypes().getByName("jar").getAttributes().attribute(REMAP, true);
 		
-		
 		proj.getExtensions().add("minecraft", new McPluginExtension(proj, data));
 		proj.getExtensions().add("mappings", new MappingsExtension(proj));
 		Configuration mcDeps = proj.getConfigurations().create("mcDeps").setTransitive(false);
+		proj.getConfigurations().create("sourceRemapPath");
 		proj.getConfigurations().create("mod_internal_unmapped");
 		proj.getConfigurations().create("mod_internal_mapped");
 		mcDeps.setCanBeResolved(false);
@@ -59,16 +64,27 @@ public class McGradlePlugin implements Plugin<Project> {
 		});
 		EclipseModel model = proj.getExtensions().getByType(EclipseModel.class);
 		model.getClasspath().getFile().whenMerged(cp1 -> {
+			Set<File> remapClasspath = new HashSet<>();
+			remapClasspath.addAll(proj.getConfigurations().getByName("mod_internal_unmapped").resolve());
+			remapClasspath.addAll(proj.getConfigurations().getByName("mcDeps").resolve());
+			remapClasspath.addAll(proj.getConfigurations().getByName("sourceRemapPath").resolve());
+			remapClasspath.add(data.getIntermediaryMinecraft());
+			Set<File> toRemap = proj.getConfigurations().getByName("mod_internal_mapped").resolve();
+			//System.out.println(toRemap);
 			Classpath cp = (Classpath) cp1;
 			for(ClasspathEntry e : cp.getEntries()) {
 				if(e.getKind().equals("lib")) {
 					AbstractLibrary lib = (AbstractLibrary) e;
 					File libF = lib.getLibrary().getFile();
+					//System.out.println(String.format("%s %s", libF, toRemap.contains(libF)));
 					if(libF.equals(data.getMinecraft())) {
 						File mcSrc = data.getMcSources();
 						if(mcSrc.exists()) {
 							lib.setSourcePath(cp.fileReference(mcSrc));
 						}
+					} else if(toRemap.contains(libF)) {
+						Path remapped = Remapper.remapSource(data.getUsedMappings().intermediaryToDev, data.getInputSource(libF.getName()).toPath(), remapClasspath);
+						lib.setSourcePath(cp.fileReference(remapped.toFile()));
 					}
 				}
 			}
@@ -79,12 +95,18 @@ public class McGradlePlugin implements Plugin<Project> {
 			remapJar.remap(jar.getOutputs().getFiles().getSingleFile());
 			// now that we know our yarn version we can do this
 			proj.getDependencies().registerTransform(ModTransformer.class, t -> {
+				Set<File> unmappedPath = new HashSet<>();
+				unmappedPath.addAll(proj.getConfigurations().getByName("mod_internal_unmapped").resolve());
+				unmappedPath.add(data.getIntermediaryMinecraft());
 				t.getFrom().attribute(REMAP, true);
 				t.getTo().attribute(REMAP, false);
 				t.getParameters().setMappingKey(data.getUsedMappings().intermediaryToDev);
+				t.getParameters().setUnmappedFiles(unmappedPath);
 			});
 			// load the MC libraries.
 			data.loadLibs();
+			//System.out.println(proj.getConfigurations().getByName("__mod_internal_hack_0").getResolvedConfiguration().getFiles());
+			//System.out.println(data.inputSources);
 		});
 	}
 }
