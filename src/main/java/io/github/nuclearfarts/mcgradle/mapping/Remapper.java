@@ -28,7 +28,6 @@ public class Remapper {
 	private static final Map<String, ?> FS_ENV = ImmutableMap.of("create", true);
 	
 	public static Path remapSource(MappingKey.Loaded mappings, Path inJar, Set<File> context) {
-		System.out.println(context);
 		String mappedName = inJar.getFileName().toString().replace(".jar", String.format("-mapped-%s-%s.jar", mappings.target, mappings.mc));
 		Path out = inJar.resolveSibling(mappedName);
 		try {

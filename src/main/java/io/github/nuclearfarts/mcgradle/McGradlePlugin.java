@@ -9,6 +9,7 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.attributes.Attribute;
+import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.plugins.ide.eclipse.model.AbstractLibrary;
 import org.gradle.plugins.ide.eclipse.model.Classpath;
@@ -21,6 +22,7 @@ import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.MappingsExtension;
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
 import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
+import io.github.nuclearfarts.mcgradle.mapping.RemapSourcesJar;
 import io.github.nuclearfarts.mcgradle.mapping.Remapper;
 import io.github.nuclearfarts.mcgradle.sources.GenSources;
 
@@ -60,14 +62,27 @@ public class McGradlePlugin implements Plugin<Project> {
 		remapJar.dependsOn(jar);
 		proj.getTasks().getByName("build").dependsOn(remapJar);
 		jar.doFirst(j -> {
-			jar.getArchiveClassifier().set(jar.getArchiveClassifier().get() + "-dev");
+			
 		});
+		
+		JavaPluginExtension java = proj.getExtensions().getByType(JavaPluginExtension.class);
+		java.withSourcesJar();
+		
+		Jar sourcesJar = (Jar) proj.getTasks().getByName("sourcesJar");
+		RemapSourcesJar remapSourcesJar = proj.getTasks().create("remapSourcesJar", RemapSourcesJar.class);
+		remapSourcesJar.dependsOn(sourcesJar);
+		sourcesJar.finalizedBy(remapSourcesJar);
+		/*sourcesJar.doFirst(j -> {
+			sourcesJar.getArchiveClassifier().set(sourcesJar.getArchiveClassifier().get() + "dev");
+		});*/
+		
 		EclipseModel model = proj.getExtensions().getByType(EclipseModel.class);
 		model.getClasspath().getFile().whenMerged(cp1 -> {
 			Set<File> remapClasspath = new HashSet<>();
 			remapClasspath.addAll(proj.getConfigurations().getByName("mod_internal_unmapped").resolve());
 			remapClasspath.addAll(proj.getConfigurations().getByName("mcDeps").resolve());
 			remapClasspath.addAll(proj.getConfigurations().getByName("sourceRemapPath").resolve());
+			remapClasspath.addAll(proj.getConfigurations().getByName("runtimeClasspath").resolve());
 			remapClasspath.add(data.getIntermediaryMinecraft());
 			Set<File> toRemap = proj.getConfigurations().getByName("mod_internal_mapped").resolve();
 			//System.out.println(toRemap);
@@ -83,8 +98,12 @@ public class McGradlePlugin implements Plugin<Project> {
 							lib.setSourcePath(cp.fileReference(mcSrc));
 						}
 					} else if(toRemap.contains(libF)) {
-						Path remapped = Remapper.remapSource(data.getUsedMappings().intermediaryToDev, data.getInputSource(libF.getName()).toPath(), remapClasspath);
-						lib.setSourcePath(cp.fileReference(remapped.toFile()));
+						try {
+							Path remapped = Remapper.remapSource(data.getUsedMappings().intermediaryToDev, data.getInputSource(libF.getName()).toPath(), remapClasspath);
+							lib.setSourcePath(cp.fileReference(remapped.toFile()));
+						} catch(RuntimeException ex) {
+							System.err.println("Error remapping source for " + libF.getName() + ": " + ex.getCause().getCause().getLocalizedMessage());
+						}
 					}
 				}
 			}
@@ -92,7 +111,13 @@ public class McGradlePlugin implements Plugin<Project> {
 		
 		proj.getConfigurations().getByName("mod_internal_mapped").getAttributes().attribute(REMAP, false);
 		proj.afterEvaluate(p -> {
-			remapJar.remap(jar.getOutputs().getFiles().getSingleFile());
+			File nonDev = jar.getArchiveFile().get().getAsFile();
+			jar.getArchiveClassifier().set(jar.getArchiveClassifier().get() + "dev");
+			remapJar.remap(jar.getArchiveFile().get().getAsFile(), nonDev);
+			
+			File nonDevSrc = sourcesJar.getArchiveFile().get().getAsFile();
+			sourcesJar.getArchiveClassifier().set(sourcesJar.getArchiveClassifier().get() + "dev");
+			remapSourcesJar.remap(sourcesJar.getArchiveFile().get().getAsFile(), nonDevSrc);
 			// now that we know our yarn version we can do this
 			proj.getDependencies().registerTransform(ModTransformer.class, t -> {
 				Set<File> unmappedPath = new HashSet<>();
