@@ -98,11 +98,13 @@ public class McGradlePlugin implements Plugin<Project> {
 							lib.setSourcePath(cp.fileReference(mcSrc));
 						}
 					} else if(toRemap.contains(libF)) {
+						File inputSrc = data.getInputSource(libF.getName());
 						try {
-							Path remapped = Remapper.remapSource(data.getUsedMappings().intermediaryToDev, data.getInputSource(libF.getName()).toPath(), remapClasspath);
+							Path remapped = Remapper.remapSource(data.getUsedMappings().intermediaryToDev, inputSrc.toPath(), remapClasspath);
 							lib.setSourcePath(cp.fileReference(remapped.toFile()));
 						} catch(RuntimeException ex) {
 							System.err.println("Error remapping source for " + libF.getName() + ": " + ex.getCause().getCause().getLocalizedMessage());
+							lib.setSourcePath(cp.fileReference(inputSrc));
 						}
 					}
 				}
