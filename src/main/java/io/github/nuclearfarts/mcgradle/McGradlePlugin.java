@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 import io.github.nuclearfarts.mcgradle.mapping.Mappings;
 import io.github.nuclearfarts.mcgradle.mapping.MappingsExtension;
+import io.github.nuclearfarts.mcgradle.mapping.ModDependencyExtension;
 import io.github.nuclearfarts.mcgradle.mapping.ModTransformer;
 import io.github.nuclearfarts.mcgradle.mapping.RemapJar;
 import io.github.nuclearfarts.mcgradle.mapping.RemapSourcesJar;
@@ -46,6 +47,8 @@ public class McGradlePlugin implements Plugin<Project> {
 		proj.getConfigurations().create("mod_internal_unmapped");
 		proj.getConfigurations().create("mod_internal_mapped");
 		mcDeps.setCanBeResolved(false);
+		
+		proj.getDependencies().getExtensions().add("remap", new ModDependencyExtension(data));
 		
 		data.ext = proj.getExtensions().getByType(McPluginExtension.class);
 		data.project = proj;
